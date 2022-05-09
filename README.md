@@ -20,6 +20,7 @@ for _, l := range lexems {
     }
     if e, ok := l.(golexem.ETC); ok {
         // If it's something else (ETC)
+        // ETC - is a string also. Just has another type and all
         fmt.Println("ETC", e)
     }
 }

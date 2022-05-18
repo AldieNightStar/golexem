@@ -61,13 +61,13 @@ func Parse(src string) []any {
 			toks = append(toks, str)
 			ptr += cnt
 		}
-		num, cnt := ParseFloat(src[ptr:])
+		num, cnt := parseFloat(src[ptr:])
 		if cnt > 0 {
 			num.LineNumber = line
 			toks = append(toks, num)
 			ptr += cnt
 		}
-		cmt, cnt := ParseComment(src[ptr:])
+		cmt, cnt := parseComment(src[ptr:])
 		if cnt > 0 {
 			cmt.LineNumber = line
 			toks = append(toks, cmt)
@@ -142,7 +142,7 @@ func parseString(s string) (tok STRING, count int) {
 	return STRING(NewToken(sb.String(), 0)), ptr
 }
 
-func ParseFloat(s string) (result NUMBER, count int) {
+func parseFloat(s string) (result NUMBER, count int) {
 	sb := strings.Builder{}
 	sb.Grow(8)
 	dotAllow := true
@@ -173,7 +173,7 @@ func ParseFloat(s string) (result NUMBER, count int) {
 	}
 }
 
-func ParseComment(s string) (result COMMENT, count int) {
+func parseComment(s string) (result COMMENT, count int) {
 	if len(s) < 1 {
 		return nil, 0
 	}

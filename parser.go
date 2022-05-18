@@ -7,35 +7,75 @@ import (
 
 const digits = "0123456789"
 
-type ETC string
+type genericToken struct {
+	Value       string
+	ValueNumber float64
+	LineNumber  int
+}
+
+type ETC *genericToken
+type STRING *genericToken
+type NUMBER *genericToken
+type COMMENT *genericToken
+
+// Gets token number or -1 if fail
+func GetTokenLine(tok any) int {
+	if etc, ok := tok.(ETC); ok {
+		return etc.LineNumber
+	} else if str, ok := tok.(STRING); ok {
+		return str.LineNumber
+	} else if num, ok := tok.(NUMBER); ok {
+		return num.LineNumber
+	} else if cmt, ok := tok.(COMMENT); ok {
+		return cmt.LineNumber
+	}
+	return -1
+}
+
+func NewToken(val string, valn float64) *genericToken {
+	return &genericToken{
+		Value:       val,
+		ValueNumber: valn,
+		LineNumber:  0,
+	}
+}
 
 func Parse(src string) []any {
 	ptr := 0
 	toks := make([]any, 0, 8)
+	line := 1
 	for {
 		if ptr >= len(src) {
 			break
 		}
 		if src[ptr] == ' ' || src[ptr] == '\t' || src[ptr] == '\n' || src[ptr] == '\r' {
+			if src[ptr] == '\n' {
+				line += 1
+			}
 			ptr += 1
 			continue
 		}
 		str, cnt := parseString(src[ptr:])
 		if cnt > 0 {
+			str.LineNumber = line
 			toks = append(toks, str)
 			ptr += cnt
 		}
 		num, cnt := ParseFloat(src[ptr:])
 		if cnt > 0 {
+			num.LineNumber = line
 			toks = append(toks, num)
 			ptr += cnt
 		}
-		cnt = ParseComment(src[ptr:])
+		cmt, cnt := ParseComment(src[ptr:])
 		if cnt > 0 {
+			cmt.LineNumber = line
+			toks = append(toks, cmt)
 			ptr += cnt
 		}
 		etc, cnt := parseEtc(src[ptr:])
 		if cnt > 0 {
+			etc.LineNumber = line
 			toks = append(toks, ETC(etc))
 			ptr += cnt
 		}
@@ -43,7 +83,7 @@ func Parse(src string) []any {
 	return toks
 }
 
-func parseEtc(s string) (result string, count int) {
+func parseEtc(s string) (tok ETC, count int) {
 	sb := strings.Builder{}
 	sb.Grow(32)
 	for _, c := range s {
@@ -52,15 +92,15 @@ func parseEtc(s string) (result string, count int) {
 		}
 		sb.WriteRune(c)
 	}
-	return sb.String(), sb.Len()
+	return ETC(NewToken(sb.String(), 0)), sb.Len()
 }
 
-func parseString(s string) (result string, count int) {
+func parseString(s string) (tok STRING, count int) {
 	if len(s) < 2 {
-		return "", 0
+		return nil, 0
 	}
 	if !(s[0] == '\'' || s[0] == '"' || s[0] == '`') {
-		return "", 0
+		return nil, 0
 	}
 	ptr := 1
 	end := rune(s[0])
@@ -90,7 +130,7 @@ func parseString(s string) (result string, count int) {
 			continue
 		}
 		if c == '\n' {
-			return "", 0
+			return nil, 0
 		}
 		if c == end {
 			ptr += 1
@@ -99,10 +139,10 @@ func parseString(s string) (result string, count int) {
 		ptr += 1
 		sb.WriteRune(c)
 	}
-	return sb.String(), ptr
+	return STRING(NewToken(sb.String(), 0)), ptr
 }
 
-func ParseFloat(s string) (result float64, count int) {
+func ParseFloat(s string) (result NUMBER, count int) {
 	sb := strings.Builder{}
 	sb.Grow(8)
 	dotAllow := true
@@ -127,25 +167,26 @@ func ParseFloat(s string) (result float64, count int) {
 		}
 	}
 	if n, err := strconv.ParseFloat(sb.String(), 64); err == nil {
-		return n, ptr
+		return NUMBER(NewToken("", n)), ptr
 	} else {
-		return 0, 0
+		return nil, 0
 	}
 }
 
-func ParseComment(s string) (count int) {
+func ParseComment(s string) (result COMMENT, count int) {
 	if len(s) < 1 {
-		return 0
+		return nil, 0
 	}
 	if s[0] != '#' {
-		return 0
+		return nil, 0
 	}
 	ptr := 0
 	for _, c := range s {
-		ptr += 1
 		if c == '\n' {
 			break
 		}
+		ptr += 1
 	}
-	return ptr
+	newStr := strings.TrimPrefix(s[1:ptr], " ")
+	return COMMENT(NewToken(newStr, 0)), ptr
 }
